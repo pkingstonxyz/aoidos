@@ -163,6 +163,21 @@ class Narrative():
     def __len__(self):
         return len(self.steps)
 
+    def __eq__(self, other):
+        if not isinstance(other, Narrative):
+            return False
+        if len(self) != len(other):
+            return False
+        for selfitm, otheritm in zip(self.steps, other.steps):
+            if selfitm != otheritm:
+                return False
+        return True
+    def __hash__(self):
+        outstr = ""
+        for step in self.steps:
+            outstr += step.name
+        return hash(outstr)
+
     def __repr__(self):
         out = ""
         for idx, itm in enumerate(self.steps):
@@ -171,19 +186,27 @@ class Narrative():
         #return f"{self.steps}"
         #return f"{[impl.name for impl in self.steps]}"
 
+# TODO: Change these to some "session" class' static var
 STEP_MAX = 50
-def solve(narrative, context, goal):
-    #Note: the context and the goal are together, I suppose, just an implication. Maybe this could be simplified?
-    ## BASE CASE: if every fact in the goal is in the context, and we have consumed all the linear facts, we're done
+ATTEMPTS_MAX = 1000
+def solve(attempts, requests, solutions, narrative, context, goal):
+    ##MOST BASIC
+    if attempts >= ATTEMPTS_MAX:
+        return solutions, attempts
+    if len(solutions) >= requests:
+        return solutions, attempts
+
+    ## "BASE CASE" if every fact in the goal is in the context, 
+    # and we have consumed all the linear facts, we can add it to solutions
     goal_reached = True
     for fact in goal:
         if fact not in context.facts:
             goal_reached = False
     if goal_reached and context.consumed_all_linearities():
-        return narrative
+        solutions.add(narrative)
+        attempts += 1
 
     ## BASE CASE: In too deep! We've done too many steps
-    # TODO: Change this to some "session" class' static var
     if len(narrative) >= STEP_MAX:
         print(narrative)
         return None
@@ -191,7 +214,9 @@ def solve(narrative, context, goal):
     ## Now for each available implication we try it out
     for implication in context.available_implications():
         if context.can_apply_implication(implication):
-            return solve(narrative.with_step(implication), context.given_implication(implication), goal)
+            solutions, attempts = solve(attempts, requests, solutions, narrative.with_step(implication), context.given_implication(implication), goal)
+
+    return solutions, attempts
 
 ## Tests go here
 if __name__ == "__main__":
@@ -260,5 +285,5 @@ if __name__ == "__main__":
                 {Fact.affine("emma"), Fact.affine("charles"), \
                  Fact.affine("emmaCharlesMarried")}))
     print(initial_environment)
-    solution = solve(Narrative(), initial_environment, {Fact("emmaCharlesMarried")})
+    solution = solve(0, 1000, set(), Narrative(), initial_environment, {Fact("emmaCharlesMarried")})
     print(solution)
