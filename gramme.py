@@ -21,8 +21,9 @@ class Fact:
         #Throw errors
         if " " in name:
             raise Exception(f"'{name}' cannot include spaces!")
-        if (left and not right) or (right and not left):
-            raise Exception(f"'{name}' must have both a left and right side")
+        # I don't think this necessarily has to be true
+        #if (left and not right) or (right and not left):
+        #    raise Exception(f"'{name}' must have both a left and right side")
         self.name = name
         self.ftype = ftype
         self.left = left
@@ -63,7 +64,7 @@ class Fact:
 
     #So I can print
     def __repr__(self):
-        if self.left and self.right:
+        if self.left or self.right:
             nameprefix = ""
             if self.ftype == FactType.AFFI:
                 nameprefix = "@"
@@ -218,8 +219,113 @@ def solve(attempts, requests, solutions, narrative, context, goal):
 
     return solutions, attempts
 
+def check_exists_already(dictionary, key, linenum):
+    # If this resource has already been found
+    exists_already = dictionary.get(key, 0)
+    if exists_already > 0:
+        raise Exception(f"Resource {key} on line {linenum} has a name collision on line {exists_already}")
+
+def check_should_exist(dictionary, key, linenum):
+    # If this resource has already been found
+    exists_already = dictionary.get(key, 0)
+    if exists_already > 0:
+        return
+    raise Exception(f"Resource {key} on line {linenum} has not been previously declared")
+
+def add_typed_fact(environment, fact, outset):
+    #Determine the fact type
+    facttype = FactType.LINE
+    if fact[0] == "@":
+        facttype = FactType.AFFI
+        fact = fact[1:]
+    if fact[0] == "!":
+        facttype = FactType.PERS
+        fact = fact[1:]
+    envget = environment.get(fact, None)
+    # If it's an implication
+    if isinstance(envget, Fact):
+        # Construct the fact with the correct facttype
+        fact = Fact(fact, facttype, envget.left, envget.right)
+        # And add it to the outset
+        outset.add(fact)
+    # Or if it's a set
+    elif isinstance(envget, set):
+        for fact in envget:
+            outset.add(fact)
+    # Or if it's just a plain fact
+    else:
+        fact = Fact(fact, facttype)
+        outset.add(fact)
+
+def parse_file(filename):
+    lines = []
+    resources = {}
+    environment = {}
+    with open(filename, "r") as file:
+        inbrackets = False
+        linenum = 0
+        for line in file:
+            linenum += 1
+            #If the line is blank, do nothing
+            if line[0] == "\n":
+                continue
+            #If the line begins with a comment do nothing
+            if line[0] == "%":
+                continue
+            #Ignore "" and "*"
+            ignorable = {"", "*"}
+            tokens = [token for token in line.strip().split(" ") if token not in ignorable]
+
+            # If there's only one token on the line
+            if len(tokens) == 1:
+                rname = tokens[0]
+                check_exists_already(resources, Fact(rname), linenum)
+                resources[Fact(rname)] = linenum
+                continue
+
+            #If it's an implication
+            if '-o' in tokens:
+                rname = tokens[0]
+                check_exists_already(resources, Fact(rname), linenum)
+                equalsind = tokens.index('=')
+                if equalsind == -1:
+                    raise Exception(f"No equals sign on implication on line {linenum}")
+                lolliind = tokens.index('-o')
+                leftside = tokens[equalsind+1 : lolliind]
+                rightside = tokens[lolliind+1 :]
+                leftset = set()
+                rightset = set()
+                for itm in leftside:
+                    check_should_exist(resources, Fact(itm), linenum)
+                    add_typed_fact(environment, itm, leftset)
+                for itm in rightside:
+                    if itm[0] == "@" or itm[0] == "!":
+                        check_should_exist(resources, Fact(itm[1:]), linenum)
+                    else:
+                        check_should_exist(resources, Fact(itm), linenum)
+                    add_typed_fact(environment, itm, rightset)
+                resources[Fact(rname)] = linenum
+                environment[rname] = Fact.limply(rname, leftset, rightset)
+                continue
+            #If it's a simple assignment
+            if tokens[1] == "=":
+                rname = tokens[0]
+                check_exists_already(resources, Fact(rname), linenum)
+                equalsind = tokens.index('=')
+                if equalsind == -1:
+                    raise Exception(f"No equals sign on implication on line {linenum}")
+                assignset = set()
+                for itm in tokens[equalsind+1:]:
+                    add_typed_fact(environment, itm, assignset)
+                resources[Fact(rname)] = linenum
+                environment[rname] = assignset
+                continue
+            #If it hasn't been successfully parsed, 
+            # it's a bad line
+            raise Exception(f"Error parsing line {linenum}")
 ## Tests go here
 if __name__ == "__main__":
+    parse_file("story.gram")
     """
     print("==========")
     print("A little testing data")
@@ -264,7 +370,6 @@ if __name__ == "__main__":
     pers_applied_context = persistent_context.given_implication(persistent_fact)
     print(f"PersContext: {persistent_context}")
     print(f"PersContext with implication {persistent_fact} newline: \n {pers_applied_context}")
-"""
     # A test taken from page 5 of https://www.cs.cmu.edu/~cmartens/lpnmr13.pdf
     print("==========")
     print("Emma and charles test")
@@ -287,3 +392,4 @@ if __name__ == "__main__":
     print(initial_environment)
     solution = solve(0, 1000, set(), Narrative(), initial_environment, {Fact("emmaCharlesMarried")})
     print(solution)
+"""
