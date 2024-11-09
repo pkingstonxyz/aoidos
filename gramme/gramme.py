@@ -413,43 +413,6 @@ def solve(attempts, requests, solutions, narrative, context, goal):
 
     return solutions, attempts
 
-def parse_file(filename):
-    env = Environment()
-    with open(filename, "r") as file:
-        linenum = 0
-        for line in file:
-            #Increment the line number
-            linenum += 1
-            #If the  line is somehow empty do nothing
-            if len(line) <= 0:
-                continue
-            #If the line is blank, do nothing
-            if line[0] == "\n":
-                continue
-            #If the line begins with a comment do nothing
-            if line[0] == "%":
-                continue
-            #Ignore "" and "*" while tokenizing
-            ignorable = {"", "*"}
-            tokens = [token for token in line.strip().split(" ") if token not in ignorable]
-
-            rname = tokens[0]
-            fact = Fact(rname)
-            # If there's only one token on the line
-            if len(tokens) == 1:
-                # the add_resource method appropriately
-                # handles errors on collisions
-                env.add_resource(fact, linenum)
-                continue
-
-            #If it's a query
-            if rname[0] == "#":
-                continue
-            #If it hasn't been successfully parsed, 
-            # it's a bad line
-            raise Exception(f"Error parsing line {linenum}")
-    return env
-
 ## Tests go here
 if __name__ == "__main__":
     env = Environment.from_file("story.gram")
