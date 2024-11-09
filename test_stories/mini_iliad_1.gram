@@ -1,0 +1,14 @@
+% Narrative resources
+achilles
+agammemnon
+zeus
+agammemnonAngry
+agammemnonCalm
+achillesDead
+
+zeusCalmsAgammemnon = agammemnon * agammemnonAngry * zeus -o !zeus * @agammemnon * @agammemnonCalm
+agammemnonKillsAchilles = achilles * agammemnon * agammemnonAngry -o @agammemnon * @achillesDead * @agammemnonAngry
+achillesAngersAgammemnon = achilles * agammemnon -o achilles * @agammemnon * agammemnonAngry
+achillesAngersCalmAgammemnon = achilles * agammemnon * agammemnonCalm -o @achilles * @agammemnon * agammemnonAngry
+
+#killAchilles 10 @achilles * @agammemnon * !zeus * @achillesAngersAgammemnon * @achillesAngersCalmAgammemnon * !zeusCalmsAgammemnon * @agammemnonKillsAchilles -o achillesDead * agammemnonCalm

@@ -1,0 +1,28 @@
+% Narrative resources
+achilles
+agamemnon
+chryseis
+briseis
+wrath
+pride
+honor
+apollo
+plague
+trojans
+greeks
+quarrel
+thetis
+
+% Narrative actions
+achillesWithdraws = achilles * pride -o @achilles * !wrath
+agamemnonClaimsBriseis = agamemnon * briseis -o @agamemnon * !pride * !honor
+achillesPraysToThetis = achilles * wrath * honor -o @achilles * @thetis * @apollo * @plague
+apolloSendsPlague = apollo * chryseis * trojans -o @apollo * plague * !wrath
+greeksSufferFromPlague = greeks * plague -o @greeks * @quarrel
+
+% Initial environment (resources + actions)
+init = @achilles * @agamemnon * briseis * chryseis * @apollo * @plague * @trojans * @greeks * @wrath * achillesWithdraws * agamemnonClaimsBriseis * achillesPraysToThetis * apolloSendsPlague * greeksSufferFromPlague
+
+% Celf query
+#get3quarrels 3 init -o quarrel
+#get5withdrawals 5 init -o achillesWithdraws

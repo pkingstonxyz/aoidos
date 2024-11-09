@@ -11,6 +11,7 @@ It defines a Fact which has:
 Note to self: Implication probably should've been a subclass of Fact, but ngl I couldn't be bothered to refactor this
 """
 from enum import Enum
+import random
 
 class FactType(Enum):
     LINE = 1
@@ -95,7 +96,9 @@ class Context:
 
     def available_implications(self):
         """Returns a list of the available implications in the system"""
-        return [fact for fact in self.facts if fact.left and fact.right]
+        implications = [fact for fact in self.facts if fact.left or fact.right]
+        random.shuffle(implications)
+        return implications
 
     def can_apply_implication(self, implication):
         """Check if a given implication can be applied in the current context"""
@@ -267,7 +270,7 @@ class Environment:
                 itmname = itmname[1:]
             exists = self.check_should_exist(Fact(itmname))
             if not exists:
-                raise Exception(f"Resource {key} on line {linenum} has not been previously declared")
+                raise Exception(f"Resource {itm} on line {linenum} has not been previously declared")
             self.add_namespaced_fact_to(itm, rightset)
         self.add_resource(fact, linenum)
         self.add_to_environment(tokens[0], Fact.limply(tokens[0], leftset, rightset))
@@ -387,13 +390,15 @@ class Environment:
             requested_stories = requests
         context = Context(*query.implication.left)
         goal = query.implication.right
-        return self._solve(0, requested_stories, set(), Narrative(), context, goal)
+        self.attempts = 0
+        return self._solve(requested_stories, set(), Narrative(), context, goal)
 
-    def _solve(self, attempts, requests, narratives, narrative, context, goal):
-        if attempts >= self.ATTEMPTS_MAX:
-            return narratives, attempts
+    def _solve(self, requests, narratives, narrative, context, goal):
+        self.attempts += 1
+        if self.attempts >= self.ATTEMPTS_MAX:
+            return narratives
         if len(narratives) >= requests:
-            return narratives, attempts
+            return narratives
         #if every fact is in the goal and each linearity
         #has been consumed, we can add it
         goal_reached = True
@@ -403,34 +408,58 @@ class Environment:
                 break
         if goal_reached and context.consumed_all_linearities():
             narratives.add(narrative)
-            attempts += 1
 
         #Done too many steps, in too deep!
         if len(narrative) >= self.STEP_MAX:
-            return None
+            return narratives
 
         #Try each implicaiton and recur
         for implication in context.available_implications():
             if context.can_apply_implication(implication):
-                narratives, attempts = self._solve(attempts, requests, narratives, narrative.with_step(implication), context.given_implication(implication), goal)
+                narratives = self._solve(requests, narratives, narrative.with_step(implication), context.given_implication(implication), goal)
 
-        return narratives, attempts
+        return narratives
 
     def __repr__(self):
         return f"RES: {self.resources}\nENV: {self.env}\nQRS: {self.queries}"
 
 ## Tests go here
 if __name__ == "__main__":
+    print("========")
+    print("Mini madame bovary test")
+    print("========")
     env = Environment.from_file("./test_stories/mini_madame_bovary.gram")
     print(env)
     query = env.queries.pop()
     print(query)
-    solutions, attempts = env.answer_query(query)
+    solutions = env.answer_query(query)
     print(solutions)
-    print(attempts)
-    """
+    print()
+
     print("==========")
-    print("A little testing data")
+    print("Mini iliad test")
+    print("==========")
+    env = Environment.from_file("./test_stories/mini_iliad_1.gram")
+    print(env)
+    query = env.queries.pop()
+    print(query)
+    solutions = env.answer_query(query)
+    print(solutions)
+    print()
+
+    print("==========")
+    print("Mini iliad gpt test")
+    print("==========")
+    env = Environment.from_file("./test_stories/mini_iliad_1_gpt.gram")
+    print(env)
+    for idx, query in enumerate(env.queries):
+        print(f"query: {idx}")
+        solutions = env.answer_query(query)
+        print(solutions)
+
+    print()
+    print("==========")
+    print("Testing the core data structures")
     print("==========")
     a = Fact.linear("hello")
     print(f"Linear fact: {a}")
@@ -472,26 +501,3 @@ if __name__ == "__main__":
     pers_applied_context = persistent_context.given_implication(persistent_fact)
     print(f"PersContext: {persistent_context}")
     print(f"PersContext with implication {persistent_fact} newline: \n {pers_applied_context}")
-    # A test taken from page 5 of https://www.cs.cmu.edu/~cmartens/lpnmr13.pdf
-    print("==========")
-    print("Emma and charles test")
-    print("==========")
-    initial_environment = \
-    Context(Fact.affine("emma"), Fact.linear("convent"), \
-            Fact.persist("novel"), Fact.affine("charles"), \
-            Fact.affine("ball"), \
-    Fact.aimply("emmaSpendsYearsInConvent", {Fact("emma"), Fact("convent")}, \
-                {Fact.affine("emma"), Fact.persist("grace"), \
-                 Fact.persist("education")}), \
-    Fact.limply("emmaReadsNovel", {Fact("emma"), Fact("novel")}, \
-                {Fact.affine("emma"), Fact.affine("escapism")}), \
-    Fact.aimply("emmaGoesToBall", {Fact("emma"), Fact("novel")}, \
-                {Fact.affine("emma"), Fact.affine("escapism")}),
-    Fact.aimply("emmaMarries", {Fact("emma"), Fact("escapism"), \
-                                Fact("charles"), Fact("grace")}, \
-                {Fact.affine("emma"), Fact.affine("charles"), \
-                 Fact.affine("emmaCharlesMarried")}))
-    print(initial_environment)
-    solution = solve(0, 1000, set(), Narrative(), initial_environment, {Fact("emmaCharlesMarried")})
-    print(solution)
-"""
