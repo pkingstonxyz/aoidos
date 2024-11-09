@@ -117,5 +117,5 @@ cannot satisfy the request, it will produce as many as it can.
 ἀοιδός 
 ---
 
-[^1] Girard paper
-[^2] Linear Logic Programming for Narrative Generation
+[^1]: Girard paper
+[^2]: Linear Logic Programming for Narrative Generation
