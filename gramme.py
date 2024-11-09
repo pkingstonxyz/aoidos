@@ -8,6 +8,7 @@ It defines a Fact which has:
         Affine: @ (can be consumed)
         Persistent: ! (Arbitrarily many copies)
     If it's an Implication -o it has a left and right side of type  set(Facts)
+Note to self: Implication probably should've been a subclass of Fact, but ngl I couldn't be bothered to refactor this
 """
 from enum import Enum
 
@@ -189,7 +190,7 @@ class Narrative():
 
 class Query:
     """A Query"""
-    def __init__(self, name, amount, implication):
+    def __init__(self, name: str, amount: int, implication: Fact):
         self.name = name
         self.amount = amount
         self.implication = implication
@@ -207,10 +208,12 @@ class Query:
 class Environment:
     """An environment used for parsing files and solving 
     implications based on the environment its in"""
-    def __init__(self):
+    def __init__(self, STEP_MAX = 50, ATTEMPTS_MAX = 1000):
         self.resources = {}
         self.env = {}
         self.queries = set()
+        self.STEP_MAX = STEP_MAX
+        self.ATTEMPTS_MAX = ATTEMPTS_MAX
     
     def from_file(filename):
         env = Environment()
@@ -378,45 +381,53 @@ class Environment:
 
         self.queries.add(query)
 
+    def answer_query(self, query: Query, requests: int = None):
+        requested_stories = query.amount
+        if requests:
+            requested_stories = requests
+        context = Context(*query.implication.left)
+        goal = query.implication.right
+        return self._solve(0, requested_stories, set(), Narrative(), context, goal)
+
+    def _solve(self, attempts, requests, narratives, narrative, context, goal):
+        if attempts >= self.ATTEMPTS_MAX:
+            return narratives, attempts
+        if len(narratives) >= requests:
+            return narratives, attempts
+        #if every fact is in the goal and each linearity
+        #has been consumed, we can add it
+        goal_reached = True
+        for fact in goal:
+            if fact not in context.facts:
+                goal_reached = False
+                break
+        if goal_reached and context.consumed_all_linearities():
+            narratives.add(narrative)
+            attempts += 1
+
+        #Done too many steps, in too deep!
+        if len(narrative) >= self.STEP_MAX:
+            return None
+
+        #Try each implicaiton and recur
+        for implication in context.available_implications():
+            if context.can_apply_implication(implication):
+                narratives, attempts = self._solve(attempts, requests, narratives, narrative.with_step(implication), context.given_implication(implication), goal)
+
+        return narratives, attempts
+
     def __repr__(self):
         return f"RES: {self.resources}\nENV: {self.env}\nQRS: {self.queries}"
 
-# TODO: Change these to some "session" class' static var
-STEP_MAX = 50
-ATTEMPTS_MAX = 1000
-def solve(attempts, requests, solutions, narrative, context, goal):
-    ##MOST BASIC
-    if attempts >= ATTEMPTS_MAX:
-        return solutions, attempts
-    if len(solutions) >= requests:
-        return solutions, attempts
-
-    ## "BASE CASE" if every fact in the goal is in the context, 
-    # and we have consumed all the linear facts, we can add it to solutions
-    goal_reached = True
-    for fact in goal:
-        if fact not in context.facts:
-            goal_reached = False
-    if goal_reached and context.consumed_all_linearities():
-        solutions.add(narrative)
-        attempts += 1
-
-    ## BASE CASE: In too deep! We've done too many steps
-    if len(narrative) >= STEP_MAX:
-        print(narrative)
-        return None
-
-    ## Now for each available implication we try it out
-    for implication in context.available_implications():
-        if context.can_apply_implication(implication):
-            solutions, attempts = solve(attempts, requests, solutions, narrative.with_step(implication), context.given_implication(implication), goal)
-
-    return solutions, attempts
-
 ## Tests go here
 if __name__ == "__main__":
-    env = Environment.from_file("story.gram")
+    env = Environment.from_file("./test_stories/mini_madame_bovary.gram")
     print(env)
+    query = env.queries.pop()
+    print(query)
+    solutions, attempts = env.answer_query(query)
+    print(solutions)
+    print(attempts)
     """
     print("==========")
     print("A little testing data")
