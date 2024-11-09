@@ -1,0 +1,24 @@
+% Narrative resources
+convent
+education
+grace
+novel
+ball
+escapism
+emma
+charles
+emmaCharlesMarried
+
+% Narrative actions
+emmaSpendsYearsInConvent = emma * convent -o @emma * !grace * !education
+
+emmaReadsNovel = emma * novel -o @emma * @escapism
+emmaGoesToBall = emma * ball -o @emma * @escapism
+emmaMarries = emma * escapism * charles * grace -o @emma * @charles * @emmaCharlesMarried
+
+% Initial environment (resources + actions)
+init = @emma * convent * !novel * @charles * @ball * @emmaSpendsYearsInConvent * emmaReadsNovel * @emmaMarries * @emmaGoesToBall
+
+% Celf query
+#get3marriages 3 init -o emmaCharlesMarried
+#get4marriages 10 init -o emmaCharlesMarried
